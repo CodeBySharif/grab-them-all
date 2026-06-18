@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --color-canvas: #010102;
+  --color-surface-1: #0f1011;
+  --color-surface-2: #141516;
+  --color-surface-3: #18191a;
+  --color-primary: #5e6ad2;
+  --color-primary-hover: #828fff;
+  --color-primary-focus: #5e69d1;
+  --color-ink: #f7f8f8;
+  --color-ink-muted: #d0d6e0;
+  --color-ink-subtle: #8a8f98;
+  --color-ink-tertiary: #62666d;
+  --color-hairline: #23252a;
+  --color-hairline-strong: #34343a;
+  --color-semantic-success: #27a644;
+
+  --font-sans: 'Inter', 'SF Pro Display', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-pill: 9999px;
+}
+
+@layer base {
+  html {
+    @apply bg-canvas text-ink antialiased;
+    font-family: var(--font-sans);
+  }
+
+  body {
+    @apply m-0 min-h-screen bg-canvas;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
