@@ -6,7 +6,11 @@ if [ -z "${BACKEND_URL:-}" ]; then
   exit 1
 fi
 
+# Cloud Run routes by Host — must send the backend hostname, not the public web domain.
+BACKEND_HOST=$(echo "$BACKEND_URL" | sed -e 's|^https://||' -e 's|^http://||' -e 's|/.*||')
+
 export BACKEND_URL
-envsubst '${BACKEND_URL}' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf
+export BACKEND_HOST
+envsubst '${BACKEND_URL} ${BACKEND_HOST}' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf
 
 exec nginx -g 'daemon off;'
