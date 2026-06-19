@@ -12,7 +12,7 @@ env:
   API_SERVICE: ferry-flight-api
   WEB_SERVICE: ferry-flight-web
   PUBLIC_WEB_URL: https://grab-them-all.shariflab.my
-  PUBLIC_API_URL: https://api.grab-them-all.shariflab.my
+  PUBLIC_API_URL: https://grab-them-all-api.shariflab.my
 
 jobs:
   build:

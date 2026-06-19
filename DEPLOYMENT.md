@@ -99,7 +99,7 @@ On push to `main`, GitHub Actions will:
 1. Build and test frontend + backend
 2. Push Docker images to Artifact Registry
 3. Deploy `ferry-flight-api` to Cloud Run
-4. Deploy `ferry-flight-web` with `BACKEND_URL=https://api.grab-them-all.shariflab.my`
+4. Deploy `ferry-flight-web` with `BACKEND_URL=https://grab-them-all-api.shariflab.my`
 5. Update API CORS to allow `https://grab-them-all.shariflab.my`
 
 ## Local Docker
@@ -132,7 +132,7 @@ gcloud run deploy ferry-flight-api \
   --port 8080
 
 # Web
-export PUBLIC_API_URL=https://api.grab-them-all.shariflab.my
+export PUBLIC_API_URL=https://grab-them-all-api.shariflab.my
 
 docker build -t $IMAGE_PREFIX/web:local -f frontend/Dockerfile frontend
 docker push $IMAGE_PREFIX/web:local
@@ -156,9 +156,17 @@ Production URLs:
 | Domain | Cloud Run service |
 |---|---|
 | `https://grab-them-all.shariflab.my` | `ferry-flight-web` |
-| `https://api.grab-them-all.shariflab.my` | `ferry-flight-api` |
+| `https://grab-them-all-api.shariflab.my` | `ferry-flight-api` |
 
-In Cloudflare, CNAME each hostname to its Cloud Run service (proxied is fine). Use SSL mode **Full** or **Full (strict)**.
+Use a **single-level** API subdomain (`grab-them-all-api.shariflab.my`), not a nested one like `api.grab-them-all.shariflab.my`. Cloudflare free Universal SSL covers `*.shariflab.my` only — deeper subdomains fail TLS.
+
+**One-time DNS + GCP setup for the API domain:**
+
+1. In **Cloud Run** → `ferry-flight-api` → **Manage custom domains** → add `grab-them-all-api.shariflab.my`
+2. In **Cloudflare** → DNS → add CNAME `grab-them-all-api` → target from GCP (often `ghs.googlehosted.com`), **proxied** (orange cloud)
+3. Remove or disable the old `api.grab-them-all` record if you created one
+
+In Cloudflare, use SSL mode **Full** or **Full (strict)**.
 
 The PWA calls `/api/*` on the **web** domain. nginx on `ferry-flight-web` proxies those requests to `BACKEND_URL` (the API custom domain). Browsers never need to call the API domain directly for normal app use.
 
@@ -166,7 +174,7 @@ CI/CD sets these automatically via workflow env vars in `.github/workflows/deplo
 
 ```yaml
 PUBLIC_WEB_URL: https://grab-them-all.shariflab.my
-PUBLIC_API_URL: https://api.grab-them-all.shariflab.my
+PUBLIC_API_URL: https://grab-them-all-api.shariflab.my
 ```
 
 Change those values if your domains change.
@@ -175,7 +183,7 @@ Change those values if your domains change.
 
 ```bash
 # API direct
-curl https://api.grab-them-all.shariflab.my/api/schedules/ferry
+curl https://grab-them-all-api.shariflab.my/api/schedules/ferry
 
 # Web proxy (should return the same JSON)
 curl https://grab-them-all.shariflab.my/api/schedules/ferry
@@ -187,9 +195,9 @@ If the API works but the web proxy returns 404, ensure `BACKEND_URL` is set and 
 
 **404 on `/api/*` from custom domain** — Usually one of:
 
-1. **`BACKEND_URL` missing or wrong** on `ferry-flight-web` — must be `https://api.grab-them-all.shariflab.my` (or your API `.run.app` URL), not the web domain.
-2. **Wrong `Host` header** — nginx must send `api.grab-them-all.shariflab.my` to Cloud Run, not `grab-them-all.shariflab.my`. Redeploy the web image with the latest `docker-entrypoint.sh`.
-3. **API not deployed** — test `https://api.grab-them-all.shariflab.my/api/schedules/ferry` directly.
+1. **`BACKEND_URL` missing or wrong** on `ferry-flight-web` — must be `https://grab-them-all-api.shariflab.my` (or your API `.run.app` URL), not the web domain.
+2. **Wrong `Host` header** — nginx must send `grab-them-all-api.shariflab.my` to Cloud Run, not `grab-them-all.shariflab.my`. Redeploy the web image with the latest `docker-entrypoint.sh`.
+3. **API not deployed** — test `https://grab-them-all-api.shariflab.my/api/schedules/ferry` directly.
 
 **502 on `/api` from web service** — Check `BACKEND_URL` includes `https://` and matches the API hostname Cloud Run expects.
 
