@@ -9,11 +9,12 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'inline',
       includeAssets: [
         'boat.svg',
         'pwa-192x192.png',
         'pwa-512x512.png',
-        'apple-touch-icon.png',
+        'maskable-512x512.png',
       ],
       manifest: {
         id: '/',
@@ -38,7 +39,7 @@ export default defineConfig({
             purpose: 'any',
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'maskable-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
@@ -46,6 +47,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             urlPattern: /^\/api\/schedules\/ferry$/,
