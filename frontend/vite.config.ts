@@ -9,13 +9,8 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'inline',
-      includeAssets: [
-        'boat.svg',
-        'pwa-192x192.png',
-        'pwa-512x512.png',
-        'maskable-512x512.png',
-      ],
+      includeAssets: [],
+      includeManifestIcons: false,
       manifest: {
         id: '/',
         name: 'Ferry & Flight',
@@ -47,6 +42,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        globPatterns: ['**/*.{js,css,html,webmanifest}'],
+        globIgnores: ['**/google*.html'],
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
@@ -60,7 +59,7 @@ export default defineConfig({
               },
               networkTimeoutSeconds: 10,
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [200],
               },
             },
           },

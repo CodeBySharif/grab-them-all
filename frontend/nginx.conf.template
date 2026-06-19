@@ -8,8 +8,14 @@ server {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
 
-    location ~* ^/(sw\.js|workbox-[^/]+\.js|registerSW\.js|manifest\.webmanifest)$ {
-        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    location = /manifest.webmanifest {
+        default_type application/manifest+json;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        try_files $uri =404;
+    }
+
+    location ~* ^/(sw\.js|workbox-[^/]+\.js|registerSW\.js)$ {
+        add_header Cache-Control "no-cache, must-revalidate" always;
         try_files $uri =404;
     }
 
