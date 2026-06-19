@@ -21,15 +21,33 @@ export function isStandalonePwa(): boolean {
   )
 }
 
-/** iOS only supports web push/notifications for installed home-screen PWAs (16.4+). */
-export function canUseWebNotifications(): boolean {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
+/** Whether the browser can show the notification permission prompt. */
+export function canRequestNotificationPermission(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window
+}
+
+/** Whether we can fire a browser Notification (granted + supported context). */
+export function canSendBrowserNotifications(): boolean {
+  if (!canRequestNotificationPermission()) {
     return false
   }
 
+  if (Notification.permission !== 'granted') {
+    return false
+  }
+
+  // iOS only delivers web notifications for installed home-screen PWAs (16.4+).
   if (isIOS() && !isStandalonePwa()) {
     return false
   }
 
   return true
+}
+
+export function notificationPermission(): NotificationPermission | 'unsupported' {
+  if (!canRequestNotificationPermission()) {
+    return 'unsupported'
+  }
+
+  return Notification.permission
 }

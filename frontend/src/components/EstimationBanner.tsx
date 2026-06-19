@@ -1,18 +1,15 @@
 import { useEstimation } from '../context/EstimationContext'
-import { canUseWebNotifications, isIOS, isStandalonePwa } from '../utils/platform'
+import { requestNotificationPermission } from '../hooks/usePriorityNotifications'
+import { isIOS, isStandalonePwa } from '../utils/platform'
 
 const providerHint: Record<'openrouteservice' | 'haversine', string> = {
   openrouteservice: 'Road route estimate',
   haversine: 'Approximate estimate',
 }
 
-function locationPromptHint(): string | null {
+function alertsHint(): string | null {
   if (isIOS() && !isStandalonePwa()) {
-    return 'On iPhone, add this app to your Home Screen for alert notifications.'
-  }
-
-  if (isIOS() && isStandalonePwa() && !canUseWebNotifications()) {
-    return 'Alerts will be requested after location access is granted.'
+    return 'In Safari, in-app alerts still work. For push notifications, add to Home Screen first.'
   }
 
   return null
@@ -24,13 +21,19 @@ export function EstimationBanner() {
     travelDurationText,
     travelProvider,
     errorMessage,
+    notificationPermission,
     requestLocation,
+    refreshNotificationPermission,
   } = useEstimation()
 
-  const iosHint = locationPromptHint()
+  const hint = alertsHint()
+  const showAlertsButton =
+    state === 'ready' && notificationPermission === 'default'
 
-  const enableLocationAndAlerts = () => {
-    requestLocation()
+  const enableAlerts = () => {
+    void requestNotificationPermission().then(() => {
+      refreshNotificationPermission()
+    })
   }
 
   if (state === 'ready') {
@@ -50,6 +53,24 @@ export function EstimationBanner() {
           Inbound: ferry arrival window · Outbound: be around terminal 1 hr
           before departure · Priority alerts when time is approaching
         </p>
+        {showAlertsButton && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-3">
+            <p className="text-ink-muted">Step 2: enable push alerts</p>
+            <button
+              type="button"
+              onClick={enableAlerts}
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
+            >
+              Enable Alerts
+            </button>
+          </div>
+        )}
+        {notificationPermission === 'granted' && (
+          <p className="mt-2 text-xs text-semantic-success">Alerts enabled</p>
+        )}
+        {hint && showAlertsButton && (
+          <p className="mt-2 text-xs text-ink-subtle">{hint}</p>
+        )}
       </div>
     )
   }
@@ -71,15 +92,12 @@ export function EstimationBanner() {
           <p className="text-ink-subtle">{errorMessage}</p>
           <button
             type="button"
-            onClick={enableLocationAndAlerts}
+            onClick={requestLocation}
             className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
           >
-            Enable Location and Alerts
+            Enable Location
           </button>
         </div>
-        {iosHint && (
-          <p className="mt-2 text-xs text-ink-subtle">{iosHint}</p>
-        )}
       </div>
     )
   }
@@ -88,17 +106,17 @@ export function EstimationBanner() {
     <div className="mb-4 rounded-lg border border-hairline bg-surface-1 px-4 py-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ink-muted">
-          Enable location for pickup/drop-off timing and priority alerts.
+          Step 1: enable location for pickup/drop-off timing.
         </p>
         <button
           type="button"
-          onClick={enableLocationAndAlerts}
+          onClick={requestLocation}
           className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
         >
-          Enable Location and Alerts
+          Enable Location
         </button>
       </div>
-      {iosHint && <p className="mt-2 text-xs text-ink-subtle">{iosHint}</p>}
+      {hint && <p className="mt-2 text-xs text-ink-subtle">{hint}</p>}
     </div>
   )
 }

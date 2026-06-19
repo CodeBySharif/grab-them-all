@@ -9,6 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'inline',
       includeAssets: [],
       includeManifestIcons: false,
       manifest: {
@@ -26,6 +27,7 @@ export default defineConfig({
             src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any',
           },
           {
             src: 'pwa-512x512.png',
@@ -44,8 +46,8 @@ export default defineConfig({
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        globPatterns: ['**/*.{js,css,html,webmanifest}'],
-        globIgnores: ['**/google*.html'],
+        globPatterns: ['index.html', 'assets/*.{js,css}'],
+        globIgnores: ['**/google*.html', '**/registerSW.js'],
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {

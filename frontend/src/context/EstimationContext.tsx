@@ -7,9 +7,9 @@ import {
   type ReactNode,
 } from 'react'
 import { fetchTravelTimes } from '../api/estimation'
-import { requestNotificationPermissionAfterDelay } from '../hooks/usePriorityNotifications'
 import type { EstimationState } from '../types/estimation'
 import { evaluateArrival } from '../utils/ferryTiming'
+import { notificationPermission } from '../utils/platform'
 
 interface EstimationContextValue {
   state: EstimationState
@@ -17,12 +17,14 @@ interface EstimationContextValue {
   travelDurationText: string | null
   travelProvider: 'openrouteservice' | 'haversine' | null
   errorMessage: string | null
+  notificationPermission: NotificationPermission | 'unsupported'
   requestLocation: () => void
   evaluateTrip: (
     routeLabel: string,
     isoDate: string,
     departureTime: string,
   ) => ReturnType<typeof evaluateArrival> | 'unavailable'
+  refreshNotificationPermission: () => void
 }
 
 const EstimationContext = createContext<EstimationContextValue | null>(null)
@@ -37,6 +39,13 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
     'openrouteservice' | 'haversine' | null
   >(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [notifyPermission, setNotifyPermission] = useState(
+    notificationPermission(),
+  )
+
+  const refreshNotificationPermission = useCallback(() => {
+    setNotifyPermission(notificationPermission())
+  }, [])
 
   const loadTravelTimes = useCallback(async (latitude: number, longitude: number) => {
     setState('loading')
@@ -71,7 +80,6 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        requestNotificationPermissionAfterDelay()
         void loadTravelTimes(
           position.coords.latitude,
           position.coords.longitude,
@@ -117,8 +125,10 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
       travelDurationText,
       travelProvider,
       errorMessage,
+      notificationPermission: notifyPermission,
       requestLocation,
       evaluateTrip,
+      refreshNotificationPermission,
     }),
     [
       state,
@@ -126,8 +136,10 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
       travelDurationText,
       travelProvider,
       errorMessage,
+      notifyPermission,
       requestLocation,
       evaluateTrip,
+      refreshNotificationPermission,
     ],
   )
 
