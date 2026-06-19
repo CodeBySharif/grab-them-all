@@ -14,7 +14,7 @@ export function PriorityAlertToast({
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[100] flex flex-col gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div className="fixed inset-x-0 bottom-0 z-[100] flex flex-col gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))]">
       {alerts.slice(0, 3).map((alert) => (
         <div
           key={alert.id}

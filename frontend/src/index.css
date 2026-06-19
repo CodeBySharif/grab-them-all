@@ -26,16 +26,40 @@
 }
 
 @layer base {
+  :root {
+    --header-offset: 9rem;
+  }
+
   html {
     @apply bg-canvas text-ink antialiased;
     font-family: var(--font-sans);
   }
 
   body {
-    @apply m-0 min-h-screen bg-canvas;
+    @apply m-0 bg-canvas;
+    min-height: 100dvh;
   }
 
   #root {
-    @apply min-h-screen;
+    min-height: 100dvh;
+  }
+}
+
+@layer utilities {
+  .safe-pt {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-px {
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  }
+
+  .pt-header {
+    padding-top: calc(var(--header-offset) + env(safe-area-inset-top, 0px));
+  }
+
+  .pb-safe-main {
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));
   }
 }

@@ -15,8 +15,8 @@ export function TopBar({
   onOptionChange,
 }: TopBarProps) {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-hairline bg-canvas">
-      <div className="mx-auto max-w-7xl px-4 py-3">
+    <header className="safe-pt fixed inset-x-0 top-0 z-50 border-b border-hairline bg-canvas">
+      <div className="safe-px mx-auto max-w-7xl py-3">
         <div className="flex items-center justify-between text-sm">
           <span className="font-semibold tracking-wide text-ink">{dayLabel}</span>
           <span className="text-ink-muted">{dateLabel}</span>

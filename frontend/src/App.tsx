@@ -70,7 +70,7 @@ function App() {
           onOptionChange={setOption}
         />
 
-        <main className="mx-auto max-w-7xl px-4 pb-32 pt-36">
+        <main className="safe-px mx-auto max-w-7xl pb-safe-main pt-header">
           {option === 'ferry' ? (
             <>
               <EstimationBanner />
