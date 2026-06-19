@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { fetchTravelTimes } from '../api/estimation'
-import { requestNotificationPermission } from '../hooks/usePriorityNotifications'
+import { requestNotificationPermissionAfterDelay } from '../hooks/usePriorityNotifications'
 import type { EstimationState } from '../types/estimation'
 import { evaluateArrival } from '../utils/ferryTiming'
 
@@ -71,7 +71,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        void requestNotificationPermission()
+        requestNotificationPermissionAfterDelay()
         void loadTravelTimes(
           position.coords.latitude,
           position.coords.longitude,
@@ -90,7 +90,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
           setErrorMessage('Unable to get your location.')
         }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+      { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 },
     )
   }, [loadTravelTimes])
 

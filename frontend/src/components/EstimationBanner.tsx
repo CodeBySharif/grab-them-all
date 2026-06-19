@@ -1,9 +1,21 @@
 import { useEstimation } from '../context/EstimationContext'
-import { requestNotificationPermission } from '../hooks/usePriorityNotifications'
+import { canUseWebNotifications, isIOS, isStandalonePwa } from '../utils/platform'
 
 const providerHint: Record<'openrouteservice' | 'haversine', string> = {
   openrouteservice: 'Road route estimate',
   haversine: 'Approximate estimate',
+}
+
+function locationPromptHint(): string | null {
+  if (isIOS() && !isStandalonePwa()) {
+    return 'On iPhone, add this app to your Home Screen for alert notifications.'
+  }
+
+  if (isIOS() && isStandalonePwa() && !canUseWebNotifications()) {
+    return 'Alerts will be requested after location access is granted.'
+  }
+
+  return null
 }
 
 export function EstimationBanner() {
@@ -15,9 +27,10 @@ export function EstimationBanner() {
     requestLocation,
   } = useEstimation()
 
+  const iosHint = locationPromptHint()
+
   const enableLocationAndAlerts = () => {
     requestLocation()
-    void requestNotificationPermission()
   }
 
   if (state === 'ready') {
@@ -53,8 +66,30 @@ export function EstimationBanner() {
 
   if (state === 'denied' || state === 'error') {
     return (
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline bg-surface-1 px-4 py-3 text-sm">
-        <p className="text-ink-subtle">{errorMessage}</p>
+      <div className="mb-4 rounded-lg border border-hairline bg-surface-1 px-4 py-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-ink-subtle">{errorMessage}</p>
+          <button
+            type="button"
+            onClick={enableLocationAndAlerts}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
+          >
+            Enable Location and Alerts
+          </button>
+        </div>
+        {iosHint && (
+          <p className="mt-2 text-xs text-ink-subtle">{iosHint}</p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-hairline bg-surface-1 px-4 py-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-ink-muted">
+          Enable location for pickup/drop-off timing and priority alerts.
+        </p>
         <button
           type="button"
           onClick={enableLocationAndAlerts}
@@ -63,21 +98,7 @@ export function EstimationBanner() {
           Enable Location and Alerts
         </button>
       </div>
-    )
-  }
-
-  return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline bg-surface-1 px-4 py-3 text-sm">
-      <p className="text-ink-muted">
-        Enable location for pickup/drop-off timing and priority alerts.
-      </p>
-      <button
-        type="button"
-        onClick={enableLocationAndAlerts}
-        className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
-      >
-        Enable Location and Alerts
-      </button>
+      {iosHint && <p className="mt-2 text-xs text-ink-subtle">{iosHint}</p>}
     </div>
   )
 }

@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { PriorityTripAlert } from '../utils/priorityAlerts'
+import { canUseWebNotifications } from '../utils/platform'
+
+const NOTIFICATION_PROMPT_DELAY_MS = 1000
 
 export function usePriorityNotifications(
   alerts: PriorityTripAlert[],
@@ -40,7 +43,7 @@ export function usePriorityNotifications(
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
-  if (!('Notification' in window)) {
+  if (!canUseWebNotifications()) {
     return false
   }
 
@@ -52,6 +55,23 @@ export async function requestNotificationPermission(): Promise<boolean> {
     return false
   }
 
-  const result = await Notification.requestPermission()
-  return result === 'granted'
+  try {
+    const result = await Notification.requestPermission()
+    return result === 'granted'
+  } catch {
+    return false
+  }
+}
+
+/** Defer until after iOS finishes the location permission sheet. */
+export function requestNotificationPermissionAfterDelay(
+  delayMs = NOTIFICATION_PROMPT_DELAY_MS,
+): void {
+  if (!canUseWebNotifications() || Notification.permission !== 'default') {
+    return
+  }
+
+  window.setTimeout(() => {
+    void requestNotificationPermission()
+  }, delayMs)
 }
