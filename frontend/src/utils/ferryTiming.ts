@@ -178,7 +178,7 @@ export function computeTripDriverTiming(
       now,
       driverLeaveBy,
       terminalDeadline,
-      terminalDeadline,
+      departure,
     )
 
     return {
@@ -243,8 +243,8 @@ export function isTripEstimationPast(timing: TripDriverTiming, now: Date): boole
     return timing.ferryArrivalLatest < now
   }
 
-  if (timing.kind === 'outbound' && timing.terminalDeadline) {
-    return timing.terminalDeadline < now
+  if (timing.kind === 'outbound') {
+    return timing.departure < now
   }
 
   return timing.priority === 'past'
@@ -272,6 +272,15 @@ export function evaluateArrival(
   const departure = parseDepartureDateTime(isoDate, departureTime)
   if (!departure) {
     return 'unavailable'
+  }
+
+  if (isOutboundRoute(routeLabel)) {
+    if (departure < now) {
+      return 'past'
+    }
+
+    const etaAtTerminal = new Date(now.getTime() + travelSeconds * 1000)
+    return etaAtTerminal <= departure ? 'yes' : 'no'
   }
 
   const deadline = getTerminalDeadline(routeLabel, departure)
