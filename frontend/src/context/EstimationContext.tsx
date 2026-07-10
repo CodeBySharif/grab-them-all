@@ -16,8 +16,10 @@ import {
   clearCachedTravelEstimate,
   getCachedTravelEstimate,
   getLocationEnabledPref,
+  queryGeolocationPermission,
   setCachedTravelEstimate,
   setLocationEnabledPref,
+  setStoredGeoPermission,
 } from '../utils/preferences'
 
 interface EstimationContextValue {
@@ -27,7 +29,7 @@ interface EstimationContextValue {
   travelProvider: 'openrouteservice' | 'haversine' | null
   errorMessage: string | null
   notificationPermission: NotificationPermission | 'unsupported'
-  requestLocation: () => void
+  requestLocation: (options?: { fresh?: boolean }) => void
   evaluateTrip: (
     routeLabel: string,
     isoDate: string,
@@ -38,12 +40,19 @@ interface EstimationContextValue {
 
 const EstimationContext = createContext<EstimationContextValue | null>(null)
 
+function initialCachedEstimate() {
+  return (
+    getCachedTravelEstimate() ??
+    getCachedTravelEstimate({ allowStale: true })
+  )
+}
+
 export function EstimationProvider({ children }: { children: ReactNode }) {
-  const cached = getCachedTravelEstimate()
+  const cached = initialCachedEstimate()
   const hadLocationPref = getLocationEnabledPref()
 
   const [state, setState] = useState<EstimationState>(() =>
-    hadLocationPref && cached ? 'ready' : hadLocationPref ? 'locating' : 'idle',
+    hadLocationPref && cached ? 'ready' : 'idle',
   )
   const [travelSeconds, setTravelSeconds] = useState<number | null>(
     () => cached?.durationSeconds ?? null,
@@ -58,14 +67,14 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
   const [notifyPermission, setNotifyPermission] = useState(
     notificationPermission(),
   )
-  const didAutoRequest = useRef(false)
+  const didAutoRestore = useRef(false)
 
   const refreshNotificationPermission = useCallback(() => {
     setNotifyPermission(notificationPermission())
   }, [])
 
   const loadTravelTimes = useCallback(async (latitude: number, longitude: number) => {
-    setState('loading')
+    setState((prev) => (prev === 'ready' ? prev : 'loading'))
     setErrorMessage(null)
 
     try {
@@ -77,69 +86,116 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
       setTravelProvider(terminal.provider)
       setState('ready')
       setLocationEnabledPref(true)
+      setStoredGeoPermission('granted')
       setCachedTravelEstimate({
         durationSeconds: terminal.durationSeconds,
         durationText: terminal.durationText,
         provider: terminal.provider,
       })
     } catch {
-      setState('error')
-      setErrorMessage('Unable to estimate travel time.')
-      setTravelSeconds(null)
-      setTravelDurationText(null)
-      setTravelProvider(null)
-      clearCachedTravelEstimate()
+      setTravelSeconds((prevSeconds) => {
+        if (prevSeconds !== null) {
+          setState('ready')
+          return prevSeconds
+        }
+
+        setState('error')
+        setErrorMessage('Unable to estimate travel time.')
+        setTravelDurationText(null)
+        setTravelProvider(null)
+        clearCachedTravelEstimate()
+        return null
+      })
     }
   }, [])
 
-  const requestLocation = useCallback(() => {
+  const requestLocation = useCallback((options?: { fresh?: boolean }) => {
     if (!navigator.geolocation) {
       setState('error')
       setErrorMessage('Geolocation is not supported by this browser.')
       return
     }
 
+    const wantFresh = options?.fresh !== false
+
     setState((prev) => (prev === 'ready' ? prev : 'locating'))
     setErrorMessage(null)
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        setStoredGeoPermission('granted')
         void loadTravelTimes(
           position.coords.latitude,
           position.coords.longitude,
         )
       },
       (error) => {
-        setTravelSeconds(null)
-        setTravelDurationText(null)
-        setTravelProvider(null)
-        clearCachedTravelEstimate()
-
         if (error.code === error.PERMISSION_DENIED) {
+          setStoredGeoPermission('denied')
           setLocationEnabledPref(false)
+          clearCachedTravelEstimate()
+          setTravelSeconds(null)
+          setTravelDurationText(null)
+          setTravelProvider(null)
           setState('denied')
           setErrorMessage('Location access denied.')
-        } else {
+          return
+        }
+
+        // Timeout / unavailable — keep cached estimate if present.
+        setTravelSeconds((prev) => {
+          if (prev !== null) {
+            setState('ready')
+            setErrorMessage(null)
+            return prev
+          }
+
           setState('error')
           setErrorMessage('Unable to get your location.')
-        }
+          return null
+        })
       },
-      { enableHighAccuracy: false, timeout: 20000, maximumAge: 60_000 },
+      {
+        enableHighAccuracy: false,
+        timeout: 20000,
+        // Fresh fix each visit so drive-time estimate stays current.
+        maximumAge: wantFresh ? 0 : 300_000,
+      },
     )
   }, [loadTravelTimes])
 
-  // Restore location on revisit — browser keeps the permission; we re-fetch quietly.
+  // Cache permission only — always refresh GPS when already granted (no re-prompt).
   useEffect(() => {
-    if (didAutoRequest.current) {
+    if (didAutoRestore.current) {
       return
     }
+    didAutoRestore.current = true
 
     if (!getLocationEnabledPref()) {
       return
     }
 
-    didAutoRequest.current = true
-    requestLocation()
+    void (async () => {
+      const permission = await queryGeolocationPermission()
+
+      if (permission === 'granted') {
+        // Instant UI from last estimate, then refresh with a new position.
+        requestLocation({ fresh: true })
+        return
+      }
+
+      // Not granted — never auto-call GPS (would show the permission dialog).
+      const stale = getCachedTravelEstimate({ allowStale: true })
+      if (stale) {
+        setTravelSeconds(stale.durationSeconds)
+        setTravelDurationText(stale.durationText)
+        setTravelProvider(stale.provider)
+        setState('ready')
+        return
+      }
+
+      setState('idle')
+    })()
   }, [requestLocation])
 
   useEffect(() => {
