@@ -2,7 +2,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -10,6 +12,13 @@ import { fetchTravelTimes } from '../api/estimation'
 import type { EstimationState } from '../types/estimation'
 import { evaluateArrival } from '../utils/ferryTiming'
 import { notificationPermission } from '../utils/platform'
+import {
+  clearCachedTravelEstimate,
+  getCachedTravelEstimate,
+  getLocationEnabledPref,
+  setCachedTravelEstimate,
+  setLocationEnabledPref,
+} from '../utils/preferences'
 
 interface EstimationContextValue {
   state: EstimationState
@@ -30,18 +39,26 @@ interface EstimationContextValue {
 const EstimationContext = createContext<EstimationContextValue | null>(null)
 
 export function EstimationProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<EstimationState>('idle')
-  const [travelSeconds, setTravelSeconds] = useState<number | null>(null)
+  const cached = getCachedTravelEstimate()
+  const hadLocationPref = getLocationEnabledPref()
+
+  const [state, setState] = useState<EstimationState>(() =>
+    hadLocationPref && cached ? 'ready' : hadLocationPref ? 'locating' : 'idle',
+  )
+  const [travelSeconds, setTravelSeconds] = useState<number | null>(
+    () => cached?.durationSeconds ?? null,
+  )
   const [travelDurationText, setTravelDurationText] = useState<string | null>(
-    null,
+    () => cached?.durationText ?? null,
   )
   const [travelProvider, setTravelProvider] = useState<
     'openrouteservice' | 'haversine' | null
-  >(null)
+  >(() => cached?.provider ?? null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [notifyPermission, setNotifyPermission] = useState(
     notificationPermission(),
   )
+  const didAutoRequest = useRef(false)
 
   const refreshNotificationPermission = useCallback(() => {
     setNotifyPermission(notificationPermission())
@@ -59,12 +76,19 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
       setTravelDurationText(terminal.durationText)
       setTravelProvider(terminal.provider)
       setState('ready')
+      setLocationEnabledPref(true)
+      setCachedTravelEstimate({
+        durationSeconds: terminal.durationSeconds,
+        durationText: terminal.durationText,
+        provider: terminal.provider,
+      })
     } catch {
       setState('error')
       setErrorMessage('Unable to estimate travel time.')
       setTravelSeconds(null)
       setTravelDurationText(null)
       setTravelProvider(null)
+      clearCachedTravelEstimate()
     }
   }, [])
 
@@ -75,7 +99,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    setState('locating')
+    setState((prev) => (prev === 'ready' ? prev : 'locating'))
     setErrorMessage(null)
 
     navigator.geolocation.getCurrentPosition(
@@ -89,8 +113,10 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
         setTravelSeconds(null)
         setTravelDurationText(null)
         setTravelProvider(null)
+        clearCachedTravelEstimate()
 
         if (error.code === error.PERMISSION_DENIED) {
+          setLocationEnabledPref(false)
           setState('denied')
           setErrorMessage('Location access denied.')
         } else {
@@ -98,9 +124,27 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
           setErrorMessage('Unable to get your location.')
         }
       },
-      { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 },
+      { enableHighAccuracy: false, timeout: 20000, maximumAge: 60_000 },
     )
   }, [loadTravelTimes])
+
+  // Restore location on revisit — browser keeps the permission; we re-fetch quietly.
+  useEffect(() => {
+    if (didAutoRequest.current) {
+      return
+    }
+
+    if (!getLocationEnabledPref()) {
+      return
+    }
+
+    didAutoRequest.current = true
+    requestLocation()
+  }, [requestLocation])
+
+  useEffect(() => {
+    refreshNotificationPermission()
+  }, [refreshNotificationPermission])
 
   const evaluateTrip = useCallback(
     (routeLabel: string, isoDate: string, departureTime: string) => {

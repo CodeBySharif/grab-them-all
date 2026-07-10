@@ -50,8 +50,9 @@ export function EstimationBanner() {
           )}
         </p>
         <p className="mt-1 text-xs text-ink-subtle">
-          Inbound: ferry arrival window · Outbound: be around terminal 1 hr
-          before departure · Priority alerts when time is approaching
+          Inbound: ferry arrival + 30 min pickup window · Outbound: be around
+          terminal 1 hr before departure · Priority alerts when time is
+          approaching
         </p>
         {showAlertsButton && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-3">

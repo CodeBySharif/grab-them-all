@@ -9,6 +9,9 @@ export const ROUTE_LABELS = {
 
 export const OUTBOUND_CHECKIN_MINUTES = 60
 
+/** Extra minutes after max ferry arrival when inbound pickup jobs are still valid. */
+export const INBOUND_PICKUP_BUFFER_MINUTES = 30
+
 export const FERRY_CROSSING = {
   kedah: { min: 90, max: 120 },
   perlis: { min: 60, max: 90 },
@@ -24,6 +27,8 @@ export interface TripDriverTiming {
   departure: Date
   ferryArrivalEarliest: Date | null
   ferryArrivalLatest: Date | null
+  /** Inbound: latest arrival + pickup buffer. Outbound: unused. */
+  pickupDeadline: Date | null
   terminalDeadline: Date | null
   leaveBy: Date | null
   priority: TripPriority
@@ -113,6 +118,13 @@ export function getOutboundTerminalDeadline(departure: Date): Date {
   )
 }
 
+/** Latest time a driver can still take inbound pickup jobs after ferry docks. */
+export function getInboundPickupDeadline(arrivalLatest: Date): Date {
+  return new Date(
+    arrivalLatest.getTime() + INBOUND_PICKUP_BUFFER_MINUTES * 60 * 1000,
+  )
+}
+
 function minutesUntil(from: Date, to: Date): number {
   return (to.getTime() - from.getTime()) / 60_000
 }
@@ -186,6 +198,7 @@ export function computeTripDriverTiming(
       departure,
       ferryArrivalEarliest: null,
       ferryArrivalLatest: null,
+      pickupDeadline: null,
       terminalDeadline,
       leaveBy: driverLeaveBy,
       priority,
@@ -202,6 +215,8 @@ export function computeTripDriverTiming(
       return null
     }
 
+    const pickupDeadline = getInboundPickupDeadline(arrivalWindow.latest)
+
     const driverLeaveBy =
       travelSeconds !== null
         ? new Date(
@@ -214,7 +229,7 @@ export function computeTripDriverTiming(
       now,
       driverLeaveBy,
       arrivalWindow.earliest,
-      arrivalWindow.latest,
+      pickupDeadline,
     )
 
     return {
@@ -222,6 +237,7 @@ export function computeTripDriverTiming(
       departure,
       ferryArrivalEarliest: arrivalWindow.earliest,
       ferryArrivalLatest: arrivalWindow.latest,
+      pickupDeadline,
       terminalDeadline: null,
       leaveBy: driverLeaveBy,
       priority,
@@ -230,8 +246,10 @@ export function computeTripDriverTiming(
         arrivalWindow.earliest,
         arrivalWindow.latest,
       ),
-      secondaryLabel: driverLeaveBy ? 'Leave by' : null,
-      secondaryTime: driverLeaveBy ? formatClockTime(driverLeaveBy) : null,
+      secondaryLabel: driverLeaveBy ? 'Leave by' : 'Pickup until',
+      secondaryTime: driverLeaveBy
+        ? `${formatClockTime(driverLeaveBy)} · pickup until ${formatClockTime(pickupDeadline)}`
+        : formatClockTime(pickupDeadline),
     }
   }
 
@@ -239,8 +257,13 @@ export function computeTripDriverTiming(
 }
 
 export function isTripEstimationPast(timing: TripDriverTiming, now: Date): boolean {
-  if (timing.kind === 'inbound' && timing.ferryArrivalLatest) {
-    return timing.ferryArrivalLatest < now
+  if (timing.kind === 'inbound') {
+    const pickupEnd =
+      timing.pickupDeadline ??
+      (timing.ferryArrivalLatest
+        ? getInboundPickupDeadline(timing.ferryArrivalLatest)
+        : null)
+    return pickupEnd !== null && pickupEnd < now
   }
 
   if (timing.kind === 'outbound') {
@@ -283,21 +306,20 @@ export function evaluateArrival(
     return etaAtTerminal <= departure ? 'yes' : 'no'
   }
 
-  const deadline = getTerminalDeadline(routeLabel, departure)
-  if (!deadline) {
+  const arrivalWindow = getFerryArrivalWindow(routeLabel, departure)
+  if (!arrivalWindow) {
     return 'unavailable'
   }
 
-  const arrivalWindow = getFerryArrivalWindow(routeLabel, departure)
-  const estimationEnd =
-    arrivalWindow?.latest ?? deadline
+  const pickupDeadline = getInboundPickupDeadline(arrivalWindow.latest)
 
-  if (estimationEnd < now) {
+  if (pickupDeadline < now) {
     return 'past'
   }
 
+  // Still worth taking pickup jobs until max arrival + buffer.
   const etaAtTerminal = new Date(now.getTime() + travelSeconds * 1000)
-  return etaAtTerminal <= deadline ? 'yes' : 'no'
+  return etaAtTerminal <= pickupDeadline ? 'yes' : 'no'
 }
 
 export function getPriorityAlertMessage(timing: TripDriverTiming): string {
