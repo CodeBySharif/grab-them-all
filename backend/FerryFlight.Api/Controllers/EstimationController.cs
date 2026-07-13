@@ -1,10 +1,12 @@
 using FerryFlight.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FerryFlight.Api.Controllers;
 
 [ApiController]
 [Route("api/estimation")]
+[EnableRateLimiting("estimation")]
 public class EstimationController(ITravelTimeService travelTimeService) : ControllerBase
 {
     [HttpGet("travel-times")]

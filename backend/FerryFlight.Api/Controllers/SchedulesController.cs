@@ -1,10 +1,12 @@
 using FerryFlight.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FerryFlight.Api.Controllers;
 
 [ApiController]
 [Route("api/schedules")]
+[EnableRateLimiting("schedules")]
 public class SchedulesController(IFerryScheduleCache scheduleCache) : ControllerBase
 {
     [HttpGet("ferry")]
