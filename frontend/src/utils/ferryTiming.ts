@@ -246,10 +246,8 @@ export function computeTripDriverTiming(
         arrivalWindow.earliest,
         arrivalWindow.latest,
       ),
-      secondaryLabel: driverLeaveBy ? 'Leave by' : 'Pickup until',
-      secondaryTime: driverLeaveBy
-        ? `${formatClockTime(driverLeaveBy)} · pickup until ${formatClockTime(pickupDeadline)}`
-        : formatClockTime(pickupDeadline),
+      secondaryLabel: driverLeaveBy ? 'Leave by' : null,
+      secondaryTime: driverLeaveBy ? formatClockTime(driverLeaveBy) : null,
     }
   }
 
