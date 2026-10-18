@@ -5,6 +5,8 @@ public record GeoPoint(double Latitude, double Longitude);
 public record TravelTimeResult(
     int DurationSeconds,
     string DurationText,
+    double DistanceMeters,
+    string DistanceText,
     string Provider);
 
 public record TravelTimesResponse(

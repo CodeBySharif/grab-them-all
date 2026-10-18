@@ -2,10 +2,10 @@ const LOCATION_ENABLED_KEY = 'ferry-flight:location-enabled'
 const GEO_PERMISSION_KEY = 'ferry-flight:geo-permission'
 const TRAVEL_CACHE_KEY = 'ferry-flight:travel-cache'
 
-/** Fresh enough to skip GPS entirely on revisit. */
+/** Fresh enough for instant UI while a new GPS fix loads. */
 const TRAVEL_CACHE_MAX_AGE_MS = 4 * 60 * 60 * 1000
 
-/** Stale but still usable for UI if we must not re-prompt. */
+/** Stale but still usable if a new fix fails. */
 const TRAVEL_CACHE_STALE_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
 export type StoredGeoPermission = 'granted' | 'denied' | 'prompt' | 'unknown'
@@ -13,6 +13,8 @@ export type StoredGeoPermission = 'granted' | 'denied' | 'prompt' | 'unknown'
 export interface CachedTravelEstimate {
   durationSeconds: number
   durationText: string
+  distanceMeters: number | null
+  distanceText: string | null
   provider: 'openrouteservice' | 'haversine'
   savedAt: number
 }
@@ -60,7 +62,7 @@ export function setStoredGeoPermission(status: StoredGeoPermission): void {
 
 function parseTravelCache(raw: string): CachedTravelEstimate | null {
   try {
-    const parsed = JSON.parse(raw) as CachedTravelEstimate
+    const parsed = JSON.parse(raw) as Partial<CachedTravelEstimate>
     if (
       typeof parsed.durationSeconds !== 'number' ||
       typeof parsed.durationText !== 'string' ||
@@ -76,7 +78,16 @@ function parseTravelCache(raw: string): CachedTravelEstimate | null {
       return null
     }
 
-    return parsed
+    return {
+      durationSeconds: parsed.durationSeconds,
+      durationText: parsed.durationText,
+      distanceMeters:
+        typeof parsed.distanceMeters === 'number' ? parsed.distanceMeters : null,
+      distanceText:
+        typeof parsed.distanceText === 'string' ? parsed.distanceText : null,
+      provider: parsed.provider,
+      savedAt: parsed.savedAt,
+    }
   } catch {
     return null
   }

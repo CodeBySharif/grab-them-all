@@ -26,6 +26,7 @@ interface EstimationContextValue {
   state: EstimationState
   travelSeconds: number | null
   travelDurationText: string | null
+  travelDistanceText: string | null
   travelProvider: 'openrouteservice' | 'haversine' | null
   errorMessage: string | null
   notificationPermission: NotificationPermission | 'unsupported'
@@ -60,6 +61,9 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
   const [travelDurationText, setTravelDurationText] = useState<string | null>(
     () => cached?.durationText ?? null,
   )
+  const [travelDistanceText, setTravelDistanceText] = useState<string | null>(
+    () => cached?.distanceText ?? null,
+  )
   const [travelProvider, setTravelProvider] = useState<
     'openrouteservice' | 'haversine' | null
   >(() => cached?.provider ?? null)
@@ -74,7 +78,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const loadTravelTimes = useCallback(async (latitude: number, longitude: number) => {
-    setState((prev) => (prev === 'ready' ? prev : 'loading'))
+    setState('loading')
     setErrorMessage(null)
 
     try {
@@ -83,6 +87,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
 
       setTravelSeconds(terminal.durationSeconds)
       setTravelDurationText(terminal.durationText)
+      setTravelDistanceText(terminal.distanceText)
       setTravelProvider(terminal.provider)
       setState('ready')
       setLocationEnabledPref(true)
@@ -90,6 +95,8 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
       setCachedTravelEstimate({
         durationSeconds: terminal.durationSeconds,
         durationText: terminal.durationText,
+        distanceMeters: terminal.distanceMeters,
+        distanceText: terminal.distanceText,
         provider: terminal.provider,
       })
     } catch {
@@ -102,6 +109,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
         setState('error')
         setErrorMessage('Unable to estimate travel time.')
         setTravelDurationText(null)
+        setTravelDistanceText(null)
         setTravelProvider(null)
         clearCachedTravelEstimate()
         return null
@@ -118,7 +126,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
 
     const wantFresh = options?.fresh !== false
 
-    setState((prev) => (prev === 'ready' ? prev : 'locating'))
+    setState('locating')
     setErrorMessage(null)
 
     navigator.geolocation.getCurrentPosition(
@@ -136,6 +144,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
           clearCachedTravelEstimate()
           setTravelSeconds(null)
           setTravelDurationText(null)
+          setTravelDistanceText(null)
           setTravelProvider(null)
           setState('denied')
           setErrorMessage('Location access denied.')
@@ -164,7 +173,8 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
     )
   }, [loadTravelTimes])
 
-  // Cache permission only — always refresh GPS when already granted (no re-prompt).
+  // Permission stays in browser settings; travel cache is only for instant UI.
+  // Every visit: refresh GPS when location was previously enabled (no re-prompt if still granted).
   useEffect(() => {
     if (didAutoRestore.current) {
       return
@@ -178,23 +188,15 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const permission = await queryGeolocationPermission()
 
-      if (permission === 'granted') {
-        // Instant UI from last estimate, then refresh with a new position.
-        requestLocation({ fresh: true })
+      if (permission === 'denied') {
+        setState('denied')
+        setErrorMessage('Location access denied.')
         return
       }
 
-      // Not granted — never auto-call GPS (would show the permission dialog).
-      const stale = getCachedTravelEstimate({ allowStale: true })
-      if (stale) {
-        setTravelSeconds(stale.durationSeconds)
-        setTravelDurationText(stale.durationText)
-        setTravelProvider(stale.provider)
-        setState('ready')
-        return
-      }
-
-      setState('idle')
+      // granted / unknown / prompt-after-prior-enable: get a fresh fix.
+      // If still granted, the browser will not show the permission dialog.
+      requestLocation({ fresh: true })
     })()
   }, [requestLocation])
 
@@ -204,7 +206,11 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
 
   const evaluateTrip = useCallback(
     (routeLabel: string, isoDate: string, departureTime: string) => {
-      if (travelSeconds === null || state !== 'ready') {
+      // Keep using last known travel time while a refresh is in flight.
+      if (
+        travelSeconds === null ||
+        (state !== 'ready' && state !== 'locating' && state !== 'loading')
+      ) {
         return 'unavailable' as const
       }
 
@@ -223,6 +229,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
       state,
       travelSeconds,
       travelDurationText,
+      travelDistanceText,
       travelProvider,
       errorMessage,
       notificationPermission: notifyPermission,
@@ -234,6 +241,7 @@ export function EstimationProvider({ children }: { children: ReactNode }) {
       state,
       travelSeconds,
       travelDurationText,
+      travelDistanceText,
       travelProvider,
       errorMessage,
       notifyPermission,

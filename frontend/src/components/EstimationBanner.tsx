@@ -19,6 +19,7 @@ export function EstimationBanner() {
   const {
     state,
     travelDurationText,
+    travelDistanceText,
     travelProvider,
     errorMessage,
     notificationPermission,
@@ -42,6 +43,12 @@ export function EstimationBanner() {
         <p className="text-ink-muted">
           Drive to Langkawi terminal:{' '}
           <span className="font-medium text-ink">{travelDurationText}</span>
+          {travelDistanceText && (
+            <>
+              {' · '}
+              <span className="font-medium text-ink">{travelDistanceText}</span>
+            </>
+          )}
           {travelProvider && (
             <span className="text-ink-subtle">
               {' '}
@@ -76,11 +83,16 @@ export function EstimationBanner() {
   }
 
   if (state === 'locating' || state === 'loading') {
+    const updating = Boolean(travelDurationText)
     return (
       <div className="mb-4 rounded-lg border border-hairline bg-surface-1 px-4 py-3 text-sm text-ink-muted">
         {state === 'locating'
-          ? 'Getting your location…'
-          : 'Calculating drive time to ferry terminal…'}
+          ? updating
+            ? 'Updating your location…'
+            : 'Getting your location…'
+          : updating
+            ? 'Updating drive time and distance…'
+            : 'Calculating drive time to ferry terminal…'}
       </div>
     )
   }

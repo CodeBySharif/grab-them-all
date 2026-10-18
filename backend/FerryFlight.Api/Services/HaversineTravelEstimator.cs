@@ -6,14 +6,23 @@ internal static class HaversineTravelEstimator
     private const double RoadFactor = 1.35;
     private const double AverageSpeedKmh = 45.0;
 
-    public static int EstimateDurationSeconds(
+    public static double EstimateRoadMeters(
         double originLat,
         double originLng,
         double destLat,
         double destLng)
     {
         var distanceKm = HaversineKm(originLat, originLng, destLat, destLng);
-        var roadKm = distanceKm * RoadFactor;
+        return distanceKm * RoadFactor * 1000.0;
+    }
+
+    public static int EstimateDurationSeconds(
+        double originLat,
+        double originLng,
+        double destLat,
+        double destLng)
+    {
+        var roadKm = EstimateRoadMeters(originLat, originLng, destLat, destLng) / 1000.0;
         return (int)Math.Ceiling(roadKm / AverageSpeedKmh * 3600);
     }
 
@@ -30,6 +39,19 @@ internal static class HaversineTravelEstimator
             < 60 => $"about {minutes} min",
             _ => $"about {minutes / 60} hr {minutes % 60} min",
         };
+    }
+
+    public static string FormatDistance(double meters)
+    {
+        if (meters < 1000)
+        {
+            return $"{(int)Math.Round(meters)} m";
+        }
+
+        var km = meters / 1000.0;
+        return km >= 10
+            ? $"{km:0} km"
+            : $"{km:0.#} km";
     }
 
     private static double HaversineKm(

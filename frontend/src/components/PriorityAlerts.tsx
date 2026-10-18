@@ -15,17 +15,21 @@ export function PriorityAlerts({ days }: PriorityAlertsProps) {
   const now = useNowTick()
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set())
 
+  const estimateReady =
+    travelSeconds !== null &&
+    (state === 'ready' || state === 'locating' || state === 'loading')
+
   const alerts = useMemo(() => {
-    if (state !== 'ready' || travelSeconds === null) {
+    if (!estimateReady || travelSeconds === null) {
       return []
     }
 
     return collectPriorityAlerts(days, travelSeconds, now).filter(
       (alert) => !dismissed.has(alert.id),
     )
-  }, [days, travelSeconds, state, now, dismissed])
+  }, [days, travelSeconds, estimateReady, now, dismissed])
 
-  usePriorityNotifications(alerts, state === 'ready')
+  usePriorityNotifications(alerts, estimateReady)
 
   const handleDismiss = useCallback((id: string) => {
     setDismissed((prev) => new Set(prev).add(id))

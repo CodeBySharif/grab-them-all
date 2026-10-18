@@ -87,12 +87,15 @@ public class TravelTimeService(
             throw new InvalidOperationException("No route found.");
         }
 
-        var durationSeconds = (int)Math.Ceiling(
-            features[0].GetProperty("properties").GetProperty("summary").GetProperty("duration").GetDouble());
+        var summary = features[0].GetProperty("properties").GetProperty("summary");
+        var durationSeconds = (int)Math.Ceiling(summary.GetProperty("duration").GetDouble());
+        var distanceMeters = summary.GetProperty("distance").GetDouble();
 
         return new TravelTimeResult(
             durationSeconds,
             HaversineTravelEstimator.FormatDuration(durationSeconds),
+            distanceMeters,
+            HaversineTravelEstimator.FormatDistance(distanceMeters),
             "openrouteservice");
     }
 
@@ -102,6 +105,11 @@ public class TravelTimeService(
         double destLat,
         double destLng)
     {
+        var distanceMeters = HaversineTravelEstimator.EstimateRoadMeters(
+            originLat,
+            originLng,
+            destLat,
+            destLng);
         var durationSeconds = HaversineTravelEstimator.EstimateDurationSeconds(
             originLat,
             originLng,
@@ -111,6 +119,8 @@ public class TravelTimeService(
         return new TravelTimeResult(
             durationSeconds,
             HaversineTravelEstimator.FormatDuration(durationSeconds),
+            distanceMeters,
+            HaversineTravelEstimator.FormatDistance(distanceMeters),
             "haversine");
     }
 }

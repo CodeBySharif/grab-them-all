@@ -37,22 +37,17 @@ export function RoutePanel({ label, dayDate, route }: RoutePanelProps) {
             ? 'loading'
             : evaluateTrip(label, dayDate, trip.departureTime)
 
-          const timing =
-            travelSeconds !== null && state === 'ready'
-              ? computeTripDriverTiming(
-                  label,
-                  dayDate,
-                  trip.departureTime,
-                  travelSeconds,
-                  now,
-                )
-              : computeTripDriverTiming(
-                  label,
-                  dayDate,
-                  trip.departureTime,
-                  null,
-                  now,
-                )
+          const canUseTravel =
+            travelSeconds !== null &&
+            (state === 'ready' || state === 'locating' || state === 'loading')
+
+          const timing = computeTripDriverTiming(
+            label,
+            dayDate,
+            trip.departureTime,
+            canUseTravel ? travelSeconds : null,
+            now,
+          )
 
           return (
             <TripItem

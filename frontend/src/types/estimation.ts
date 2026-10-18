@@ -1,6 +1,8 @@
 export interface TravelTimeResult {
   durationSeconds: number
   durationText: string
+  distanceMeters: number
+  distanceText: string
   provider: 'openrouteservice' | 'haversine'
 }
 
