@@ -1,170 +1,95 @@
-# Ferry & Flight PWA
+# Grab Them All
 
-**Real-time ferry intelligence for Langkawi drivers and passengers — without opening the ferry website.**
+## Project description
 
-[![Live Demo](https://img.shields.io/badge/demo-live-5e6ad2?style=flat-square)](https://grab-them-all.shariflab.my)
-[![Stack](https://img.shields.io/badge/stack-React%20%7C%20ASP.NET%20Core%20%7C%20GCP-8a8f98?style=flat-square)](#tech-stack)
+Grab Them All is a Progressive Web App for Langkawi ferry schedules. It scrapes the public Langkawi Ferry Line timetable, shows three days of sailings, and uses your GPS to estimate drive time and distance to the Langkawi ferry terminal so you can decide whether a trip is still worth taking.
 
----
+Stack: React (Vite + TypeScript) frontend, ASP.NET Core API, Docker. No accounts. Optional OpenRouteService key for road routing (haversine fallback otherwise).
 
-## The problem
+Live app: [https://grab-them-all.shariflab.my](https://grab-them-all.shariflab.my)
 
-On Langkawi, the ferry is one of the most important ways for visitors and locals to travel on and off the island. For **Grab drivers**, inbound and outbound ferry windows are a **high-demand period** — a reliable source of trips when passengers need rides to or from the terminal.
+## Problem statement
 
-The gap: there was **no simple way to see ferry timings** without manually visiting the [Langkawi Ferry Line](https://ticket.langkawiferryline.com/) website, checking schedules trip by trip, and mentally calculating whether a run was still worth accepting.
+Ferry windows are high-demand for Grab and taxi drivers on Langkawi — passengers need rides to and from the terminal. The official timetable lives on a website that is awkward to check while deciding whether to accept a job. Drivers still have to guess whether they can reach the terminal before the sailing (or before an inbound ferry arrives).
 
-Drivers needed answers fast:
+## How the project solves the problem
 
-- When does the next ferry leave?
-- When will an inbound ferry actually arrive?
-- If I accept a job now, can I still reach the terminal in time?
-- Which sailing should I prioritise before the window closes?
+1. The API scrapes and caches ferry schedules (about 30 minutes) and exposes them as JSON.
+2. The PWA shows a three-day grid for Kedah ↔ Langkawi and Perlis ↔ Langkawi (inbound and outbound).
+3. With location enabled, each visit refreshes GPS and estimates drive **time and distance** to the terminal (OpenRouteService when configured, otherwise haversine).
+4. Per-trip Yes/No, leave-by times, and inbound arrival windows use that estimate plus route-specific rules.
+5. Priority alerts (in-app toasts; optional push) surface sailings that need attention soon.
 
----
+## Target user
 
-## The solution
+- Grab / taxi drivers on Langkawi who pick up or drop off around ferry times
+- Passengers who need a quick check of whether they can still catch a sailing
 
-**Ferry & Flight PWA** aggregates Langkawi ferry timetables into a mobile-first app that drivers can install on their home screen. It:
+## Use case
 
-1. **Scrapes and caches** official ferry timetables (3 days, all major routes) so data is always one tap away
-2. **Estimates ferry arrival windows** for inbound sailings (Kedah/Perlis → Langkawi)
-3. **Calculates driver timing** from the driver's **current GPS location** to Langkawi ferry terminal
-4. Shows **Yes / No** indicators — can you still make a trip in time?
-5. Surfaces **leave-by times**, terminal deadlines, and **priority alerts** when a sailing is approaching
-
-No account required. Open the app, enable location, and decide in seconds whether a Grab order is worth taking.
-
-**Live app:** [https://grab-them-all.shariflab.my](https://grab-them-all.shariflab.my)
-
----
+- A driver opens the installed PWA before an evening rush, enables location once, and sees which outbound ferries they can still make from their current spot.
+- On reopen later the same day, the app updates location and drive estimate without asking for permission again, then refreshes Yes/No on the grid.
+- A passenger checks inbound Kedah → Langkawi sailings and the estimated arrival window at the terminal.
+- Someone installs the app to the home screen and still sees the last cached schedule offline.
 
 ## Key features
 
-| Feature | What it does |
-|---|---|
-| **3-day schedule grid** | Kedah ↔ Langkawi and Perlis ↔ Langkawi, inbound and outbound |
-| **Smart caching** | Server-side cache (30 min) with stale fallback if the ferry site is slow |
-| **Drive-time estimation** | OpenRouteService road routing, with haversine fallback |
-| **Driver Yes/No** | Per-trip indicator based on your location and sailing deadlines |
-| **Inbound arrival windows** | Estimated ferry arrival range after departure |
-| **Outbound terminal timing** | “Be around terminal” 1 hour before departure; job window until sailing time |
-| **Priority alerts** | In-app toasts and optional push notifications for urgent trips |
-| **Installable PWA** | Add to home screen on iOS/Android; offline schedule cache |
-| **Responsive UI** | Optimised for phones in the car; full layout on desktop |
+- Three-day ferry schedule grid (four routes, fixed trip slots)
+- Server-side schedule cache with stale fallback if the ferry site is slow
+- GPS drive-time and distance to Langkawi terminal; fresh fix on each open after location is enabled
+- Yes/No indicators, leave-by times, inbound arrival windows, outbound “be at terminal” timing
+- Priority alerts (toasts; optional notifications)
+- Installable PWA with offline schedule cache
+- Flight tab placeholder (“Coming soon”)
+- Same-origin `/api` via nginx in production Docker images
 
----
+## How to pull and run the code
 
-## How it works
-
-```
-Langkawi Ferry Line website
-        │
-        ▼  scrape + cache (ASP.NET Core API)
-   REST API (/api/schedules/ferry)
-        │
-        ▼  nginx proxy (same origin)
-   React PWA  ◄── GPS location
-        │
-        ▼
-  Yes/No · leave-by · alerts per trip
-```
-
-1. The **backend** fetches and parses the public ferry timetable, caches it, and exposes a JSON API
-2. The **frontend PWA** loads schedules and requests travel time from the driver's coordinates
-3. **Business logic** applies route-specific rules (inbound arrival windows vs outbound terminal deadlines)
-4. The driver sees actionable timing on every trip slot — not just raw departure times
-
----
-
-## Tech stack
-
-| Layer | Technologies |
-|---|---|
-| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS 4, vite-plugin-pwa |
-| **Backend** | ASP.NET Core 10, HtmlAgilityPack, IMemoryCache |
-| **External APIs** | Langkawi Ferry Line (scraped), OpenRouteService (optional) |
-| **Infrastructure** | Docker, nginx, Google Cloud Run, Artifact Registry |
-| **CI/CD** | GitHub Actions |
-| **DNS / SSL** | Cloudflare + custom domain |
-
-**Architecture:** Monorepo — two Cloud Run services (API + static web with nginx reverse proxy).
-
----
-
-## Project structure
-
-```
-grab-them-all/
-├── backend/FerryFlight.Api/     # Scraper, cache, travel-time API
-├── frontend/                    # React PWA
-├── documentation/               # Step-by-step project docs (start here to learn)
-├── .github/workflows/           # CI/CD pipeline
-├── docker-compose.yml           # Local full-stack
-└── DEPLOYMENT.md                # GCP setup guide
-```
-
----
-
-## Documentation
-
-Full learning guide (architecture, data flow, every file, deploy, DNS, best practices):
-
-**→ [documentation/README.md](documentation/README.md)**
-
-Read docs **1 → 11** in order for a structured walkthrough of the codebase.
-
----
-
-## Quick start
-
-### Local development
+### Clone
 
 ```bash
-# Backend (terminal 1)
-cd backend/FerryFlight.Api && dotnet run
-# → http://localhost:5000
-
-# Frontend (terminal 2)
-cd frontend && npm install && npm run dev
-# → http://localhost:5173
+git clone https://github.com/CodeBySharif/grab-them-all.git
+cd grab-them-all
 ```
 
-### Docker
+### Option A — Docker (full stack)
 
 ```bash
 cp .env.example .env
+# Optional: set OPENROUTESERVICE_API_KEY in .env for road routing
+
 docker compose up --build
-# Web: http://localhost:8081  |  API: http://localhost:8080
+```
+
+- Web: [http://localhost:8081](http://localhost:8081)
+- API: [http://localhost:8080](http://localhost:8080)
+
+### Option B — Local dev (two terminals)
+
+```bash
+# Terminal 1 — API
+cd backend/FerryFlight.Api
+dotnet run
+# → http://localhost:5000
+```
+
+```bash
+# Terminal 2 — PWA
+cd frontend
+npm install
+npm run dev
+# → http://localhost:5173 (Vite proxies /api to the backend)
+```
+
+### Useful API checks
+
+```bash
+curl http://localhost:8080/api/schedules/ferry
+curl "http://localhost:8080/api/estimation/travel-times?latitude=6.35&longitude=99.80"
 ```
 
 ### Deploy
 
-Push to `main` — GitHub Actions deploys to Google Cloud Run. See [DEPLOYMENT.md](DEPLOYMENT.md).
+Push to `main` deploys via GitHub Actions to Google Cloud Run. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
----
-
-## API
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/schedules/ferry` | 3 days of ferry schedules (cached) |
-| `GET` | `/api/estimation/travel-times?latitude=&longitude=` | Drive time to Langkawi terminal |
-
----
-
-## Roadmap
-
-- [x] Ferry schedules (3 days, 4 routes)
-- [x] Driver location + travel estimation
-- [x] Yes/No and priority alerts
-- [x] PWA install + offline cache
-- [x] Production deploy (GCP + custom domain)
-- [ ] Flight module (placeholder in UI)
-
----
-
-## Author
-
-Built as a portfolio project to solve a real operational problem for Langkawi e-hailing drivers — turning fragmented ferry timetable data into **actionable timing decisions** at the moment orders spike.
-
-**Repository:** [CodeBySharif/grab-them-all](https://github.com/CodeBySharif/grab-them-all)
+Deeper walkthrough of architecture and files: [documentation/README.md](documentation/README.md).
